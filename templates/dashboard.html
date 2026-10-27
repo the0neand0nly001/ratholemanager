@@ -1,0 +1,84 @@
+{% from 'icons.html' import icon %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}"><meta name="preview-mode" content="{{ 'true' if preview else 'false' }}">
+    <title>Dashboard · Rathole Manager</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='rathole-icon.png') }}?v=2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+    <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<button class="sidebar-overlay" id="sidebarOverlay" aria-label="Close navigation" hidden></button>
+<aside class="sidebar" id="sidebar" aria-label="Main navigation">
+    <a class="brand" href="/"><img class="brand-image" src="{{ url_for('static', filename='rathole-icon.png') }}" width="43" height="43" alt=""><span>Rathole<span class="brand-subtitle">MANAGER</span></span></a>
+    <p class="nav-caption">WORKSPACE</p>
+    <nav>
+        <button class="nav-link active" data-page="dashboard" aria-current="page">{{ icon('grid') }}<span>Dashboard</span></button>
+        <button class="nav-link" data-page="tunnels">{{ icon('tunnel') }}<span>Tunnels</span><span class="nav-count" id="navTunnelCount">—</span></button>
+        <button class="nav-link" data-page="hosts">{{ icon('server') }}<span>Hosts</span><span class="nav-count">2</span></button>
+        <button class="nav-link" data-page="logs">{{ icon('logs') }}<span>Logs</span></button>
+        <button class="nav-link" data-page="activity">{{ icon('activity') }}<span>Activity</span></button>
+    </nav>
+    <div class="sidebar-bottom">
+        <button class="nav-link" data-page="settings">{{ icon('settings') }}<span>Settings</span></button>
+        <button class="nav-link" id="helpButton">{{ icon('help') }}<span>How it works</span></button>
+        <div class="sidebar-footer"><span class="avatar">{{ user[0]|upper }}</span><span><strong>{{ user }}</strong><small>{{ 'Design preview' if preview else 'Administrator' }}</small></span><span class="version">v{{ version }}</span></div>
+    </div>
+</aside>
+<div class="workspace">
+    <header class="header">
+        <div class="header-left"><button class="icon-button mobile-menu" id="mobileMenu" aria-label="Open navigation">{{ icon('menu') }}</button><span class="breadcrumb">Workspace <span>/</span> <strong id="breadcrumbPage">Dashboard</strong></span></div>
+        <div class="header-right"><span class="connection-label" id="connectionLabel"><span class="dot"></span>Checking hosts</span>{% if not preview %}<form action="{{ url_for('logout') }}" method="post"><input name="csrf_token" type="hidden" value="{{ csrf_token() }}"><button class="icon-button" type="submit" aria-label="Sign out">{{ icon('logout', 18) }}</button></form>{% else %}<span class="preview-tag">LOCAL PREVIEW</span>{% endif %}</div>
+    </header>
+    <main class="main" id="main" tabindex="-1">
+        {% if preview %}<div class="preview-banner"><span class="dot"></span><span>Local preview · Imported configurations. Live changes are disabled.</span></div>{% endif %}
+        <div id="notice" class="message" role="status" hidden></div>
+        <div class="page-heading"><h1 id="pageTitle">System dashboard</h1><div class="heading-actions"><button class="button secondary" id="refreshButton">{{ icon('refresh', 16) }} Refresh</button><button class="button primary" id="addTunnelButton">{{ icon('plus', 17) }} Add tunnel</button></div></div>
+
+        <section class="page" id="page-dashboard">
+            <dl class="totals-strip">
+                <div><dt>Tunnels</dt><dd id="statTotal">—</dd></div>
+                <div><dt>TCP</dt><dd id="statTcp">—</dd></div>
+                <div><dt>UDP</dt><dd id="statUdp">—</dd></div>
+                <div><dt>Enabled</dt><dd id="statEnabled">—</dd></div>
+                <div><dt>Disabled</dt><dd id="statDisabled">—</dd></div>
+                <div><dt>Hosts reachable</dt><dd><span id="statHosts">—</span><span class="total-denominator"> / 2</span></dd></div>
+            </dl>
+            <div class="section-heading"><h2>Host status</h2><button class="text-button" data-go="hosts">Manage hosts {{ icon('arrow', 15) }}</button></div>
+            <div class="panel hosts-panel" id="dashboardHosts"></div>
+            <div class="panel routes-panel"><div class="panel-heading"><h2>Tunnels <span class="count-pill" id="overviewCount">—</span></h2><button class="text-button" data-go="tunnels">View all {{ icon('arrow', 15) }}</button></div><div class="table-scroll"><table><thead><tr><th>Tunnel</th><th>Protocol</th><th>VPS listener</th><th>Local destination</th><th>State</th><th><span class="visually-hidden">Actions</span></th></tr></thead><tbody id="overviewRows"></tbody></table></div></div>
+        </section>
+
+        <section class="page" id="page-tunnels" hidden>
+            <div class="panel"><div class="filter-bar"><label class="search-box">{{ icon('search', 17) }}<input id="tunnelSearch" type="search" placeholder="Search by name, address or port…" aria-label="Search tunnels"></label><div class="filter-controls"><select id="protocolFilter" aria-label="Filter by protocol"><option value="all">All protocols</option><option value="tcp">TCP</option><option value="udp">UDP</option></select><select id="stateFilter" aria-label="Filter by state"><option value="all">All states</option><option value="enabled">Enabled</option><option value="disabled">Disabled</option><option value="issues">Needs attention</option></select></div></div><div class="table-scroll"><table><thead><tr><th>Tunnel</th><th>Protocol</th><th>VPS listener</th><th>Local destination</th><th>State</th><th>Actions</th></tr></thead><tbody id="tunnelRows"></tbody></table></div><div class="table-footer"><span id="filterCount">Loading tunnels…</span><span>Tokens are preserved and kept private.</span></div></div>
+        </section>
+
+        <section class="page" id="page-hosts" hidden><div class="panel hosts-panel" id="fullHosts"></div><p class="table-note">Restart affects the Rathole service on the selected host. Existing tunnel connections may reconnect.</p></section>
+
+        <section class="page" id="page-logs" hidden><div class="panel"><div class="panel-heading"><div><h2>Service journal</h2><p>Recent Rathole output. Authentication tokens and encryption secrets are redacted.</p></div><div class="filter-controls"><select id="logHost" aria-label="Select log host"><option value="server">VPS relay</option><option value="client">Local gateway</option></select><button class="button secondary" id="loadLogs">{{ icon('refresh', 16) }} Refresh logs</button></div></div><pre class="log-view" id="logText">Select a host to read its service journal.</pre></div></section>
+
+        <section class="page" id="page-activity" hidden><div class="panel"><div class="panel-heading"><div><h2>Workspace activity</h2><p>Configuration changes, service actions and availability events.</p></div></div><div class="activity-list" id="activityList"></div></div></section>
+
+        <section class="page" id="page-settings" hidden>
+            <form id="settingsForm" class="settings-grid">
+                <div class="panel settings-panel"><div class="panel-heading"><div><h2>Discord notifications</h2><p>Apply results and host or tunnel-listener availability changes.</p></div></div><div class="panel-body"><label class="switch-row"><span><strong>Enable notifications</strong><small>Repeated failures are grouped.</small></span><input id="discordEnabled" type="checkbox" role="switch"></label><label>Webhook URL<input type="password" id="discordWebhook" placeholder="https://discord.com/api/webhooks/…" autocomplete="new-password"><small id="webhookHint">Your webhook stays on the server.</small></label><button class="button secondary" id="testDiscord" type="button">Send test notification</button></div></div>
+                <div class="panel settings-panel"><div class="panel-heading"><div><h2>Authentication</h2><p>Local login remains available when Authentik is enabled.</p></div></div><div class="panel-body"><label class="switch-row"><span><strong>Enable Authentik</strong><small>Optional OpenID Connect sign-in.</small></span><input id="oidcEnabled" type="checkbox" role="switch"></label><label>Issuer URL<input id="oidcIssuer" type="url" placeholder="https://auth.example.com/application/o/rathole/"></label><div class="two-columns"><label>Client ID<input id="oidcClientId" autocomplete="off"></label><label>Client secret<input id="oidcClientSecret" type="password" autocomplete="new-password" placeholder="Leave blank to keep existing"></label></div><label>Allowed administrator emails<input id="oidcEmails" placeholder="you@example.com"><small>Comma-separated. Only these verified accounts can sign in.</small></label><p class="field-note" id="oidcBaseUrl"></p></div></div>
+                <div class="settings-footer"><span class="muted">Secrets are never returned to the browser after saving.</span><button class="button primary" type="submit">Save settings</button></div>
+            </form>
+        </section>
+        <footer class="main-footer"><span>Rathole Manager <span>·</span> v{{ version }}</span><span id="lastChecked">Waiting for first check</span></footer>
+    </main>
+    <div class="draft-bar" id="draftBar" hidden><div><span class="dot rose"></span><strong>Draft changes ready</strong><span>Live configurations are unchanged.</span></div><div><button class="button quiet" id="discardDraft">Discard draft</button><button class="button primary" id="previewButton">Review changes {{ icon('arrow', 16) }}</button></div></div>
+</div>
+
+<dialog id="tunnelDialog" class="modal"><form id="tunnelForm"><div class="modal-heading"><div><p class="eyebrow">TUNNEL CONFIGURATION</p><h2 id="tunnelDialogTitle">Add a tunnel</h2></div><button type="button" class="icon-button" data-close="tunnelDialog" aria-label="Close">×</button></div><div class="modal-body"><p class="muted">Define the public listener and where traffic should go locally.</p><div id="tunnelError" class="message error" role="alert" hidden></div><input id="originalName" type="hidden"><label>Tunnel name<input id="tunnelName" required maxlength="100" pattern="[A-Za-z0-9_-]+" placeholder="minecraft-survival"><small>A matching entry will be maintained on both hosts.</small></label><label>Protocol<select id="tunnelProtocol"><option value="tcp">TCP</option><option value="udp">UDP</option></select></label><label>VPS listening address<input id="tunnelBind" required placeholder="0.0.0.0:25565" autocomplete="off"></label><div class="destination-arrow">{{ icon('arrow', 19) }}<span>Forward traffic to</span></div><label>Local destination<input id="tunnelLocal" required placeholder="192.168.1.100:25565" autocomplete="off"></label><div class="subtle-note">{{ icon('shield', 16) }}<span>Existing tokens are retained. New tunnels receive a shared token automatically.</span></div></div><div class="modal-footer"><button type="button" class="button secondary" data-close="tunnelDialog">Cancel</button><button class="button primary" type="submit">Save to draft {{ icon('arrow', 16) }}</button></div></form></dialog>
+
+<dialog id="previewDialog" class="modal preview-modal"><div class="modal-heading"><h2>Preview changes</h2><button class="icon-button" data-close="previewDialog" aria-label="Close">×</button></div><div class="modal-body"><div class="message warning" id="applyNotice"></div><div id="previewError" class="message error" role="alert" hidden></div><div class="diff-panel"><div class="diff-heading"><strong>VPS relay</strong><span id="serverDiffState"></span></div><pre id="serverDiff"></pre></div><div class="diff-panel"><div class="diff-heading"><strong>Local gateway</strong><span id="clientDiffState"></span></div><pre id="clientDiff"></pre></div><label class="confirmation-check"><input type="checkbox" id="applyConfirmed"><span>I’ve reviewed both hosts and understand that affected connections may reconnect.</span></label></div><div class="modal-footer"><button class="button secondary" data-close="previewDialog">Back to editing</button><button class="button primary" id="applyButton" disabled>Apply reviewed changes {{ icon('arrow', 16) }}</button></div></dialog>
+
+<dialog id="confirmDialog" class="modal small-modal"><div class="modal-heading"><h2 id="confirmTitle">Confirm action</h2><button class="icon-button" data-close="confirmDialog" aria-label="Close">×</button></div><div class="modal-body"><p id="confirmMessage"></p></div><div class="modal-footer"><button class="button secondary" data-close="confirmDialog">Cancel</button><button class="button danger" id="confirmAction">Confirm</button></div></dialog>
+
+<dialog id="helpDialog" class="modal small-modal"><div class="modal-heading"><h2>Configuration changes</h2><button class="icon-button" data-close="helpDialog" aria-label="Close">×</button></div><div class="modal-body help-content"><p><strong>1. Edit tunnels.</strong> Add, edit, disable or remove a tunnel. Changes are kept in a draft.</p><p><strong>2. Preview.</strong> Review configuration differences for each host. Secrets are hidden.</p><p><strong>3. Apply.</strong> Changes are staged on both hosts before being applied. Previous configurations are retained for recovery.</p><p>“Listening” means the VPS Rathole process has the configured port open. It does not confirm destination application health. UDP application health requires an application-specific check.</p></div><div class="modal-footer"><button class="button primary" data-close="helpDialog">Close</button></div></dialog>
+</body></html>

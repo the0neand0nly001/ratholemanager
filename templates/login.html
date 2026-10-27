@@ -1,0 +1,20 @@
+{% from 'icons.html' import icon %}
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{ 'Set up' if setup else 'Sign in' }} · Rathole Manager</title><link rel="icon" type="image/png" href="{{ url_for('static', filename='rathole-icon.png') }}?v=2"><link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}"></head>
+<body class="auth-page">
+<main class="auth-card">
+    <div class="auth-brand"><img class="brand-image" src="{{ url_for('static', filename='rathole-icon.png') }}" width="43" height="43" alt=""><span>Rathole Manager</span></div>
+    <h1>{{ 'Create administrator account' if setup else 'Sign in' }}</h1>
+    <p class="muted">{{ 'Create your administrator account to get started.' if setup else 'Sign in to manage your relay and gateway.' }}</p>
+    {% if error %}<div class="message error" role="alert">{{ error }}</div>{% endif %}
+    <form method="post" class="auth-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {% if setup %}<label>Setup token<input name="setup_token" type="password" required autocomplete="off"><small>Available in the private setup-token file created by the installer.</small></label>{% endif %}
+        <label>Username<input name="username" required autocomplete="username" maxlength="80" autofocus></label>
+        <label>Password<input name="password" type="password" required autocomplete="{{ 'new-password' if setup else 'current-password' }}" {% if setup %}minlength="12"{% endif %}></label>
+        <button class="button primary full" type="submit">{{ 'Create account' if setup else 'Sign in' }} {{ icon('arrow', 17) }}</button>
+    </form>
+    {% if authentik %}<div class="auth-divider">or</div><a class="button secondary full" href="{{ url_for('authentik_login') }}">{{ icon('shield', 17) }} Continue with Authentik</a>{% endif %}
+</main>
+</body></html>
